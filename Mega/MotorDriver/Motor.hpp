@@ -1,7 +1,7 @@
 #ifndef _MOTOR
 #define _MOTOR
 
-enum ControlMode {POSITION_CONTROL, VELOCITY_CONTROL};
+enum ControlMode {POSITION_CONTROL, VELOCITY_CONTROL, DUTY_CYCLE_CONTROL};
 
 class Motor{
 private:
@@ -23,6 +23,7 @@ private:
 
     float target_position;
     float target_velocity;
+    float target_duty_cycle;
     ControlMode control_mode;
 
     void setDutyCycle();
@@ -39,6 +40,7 @@ public:
 
     void setTargetVelocity(float vel);
     void setTargetPosition(float pos);
+    void setTargetDutyCycle(float duty_cycle);
 
     void resetPosition();
     void runControlLoop();

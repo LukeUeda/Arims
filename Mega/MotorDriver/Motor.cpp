@@ -10,6 +10,8 @@ Motor::Motor(int ia, int ib, int ha, int hb){
     ha_pin = ha;
     hb_pin = hb;
 
+    control_mode = VELOCITY_CONTROL;
+
     pinMode(ia_pin, OUTPUT);
     pinMode(ib_pin, OUTPUT);
 
@@ -53,13 +55,29 @@ void Motor::setTargetPosition(float pos){
     target_position = pos;
 }
 
+void setTargetDutyCycle(float duty_cycle){
+    target_duty_cycle = duty_cycle;
+}
+
 void Motor::resetPosition(){
     position_enc = 0;
     position = 0;
 }
 
 void Motor::runControlLoop(){
+    switch (control_mode)
+    {
+    case VELOCITY_CONTROL:
+        break;
+    
+    case POSITION_CONTROL:
+        break;
 
+    case DUTY_CYCLE_CONTROL:
+        duty_cycle = target_duty_cycle
+        setDutyCycle();
+        break;
+    }
 }
 
 void Motor::setDutyCycle(){

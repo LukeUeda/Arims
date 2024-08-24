@@ -1,0 +1,62 @@
+#ifndef _MOTOR
+#define _MOTOR
+
+enum ControlMode {POSITION_CONTROL, VELOCITY_CONTROL, DUTY_CYCLE_CONTROL};
+
+class Motor{
+private:
+	// driver pins
+    int ia_pin;
+    int ib_pin;
+    int ha_pin;
+    int hb_pin;
+	
+	// encoder pin
+	int encoderA_pin;
+	
+	// PID values
+    float kp;
+    float ki;
+    float kd;
+	
+	// encoder initialisation
+	 volatile unsigned long startTime = 0;
+	 volatile unsigned long stopTime = 0;
+	 volatile int pulseCount = 0;
+	 volatile bool counting = false; // might need to change to 'boolean' to avoid syntax error
+	
+
+    float duty_cycle;
+    float position;
+    int position_enc;
+    float velocity;
+    bool reverse;
+	
+    int encoder_ppr; // added
+
+    float target_position;
+    float target_velocity;
+    float target_duty_cycle;
+    ControlMode control_mode;
+
+    void setDutyCycle();
+public:
+    Motor(int ia, int ib, int ha, int hb);
+
+    float getVelocity();
+    float getPosition();
+    float getEncoderPosition();
+
+    void setPID(int kp, int ki, int kd);
+    void configEncoder(int ppr, int HS_A);
+    void setControlMode(ControlMode mode);
+
+    void setTargetVelocity(float vel);
+    void setTargetPosition(float pos);
+    void setTargetDutyCycle(float duty_cycle);
+
+    void resetPosition();
+    void runControlLoop();
+};
+
+#endif

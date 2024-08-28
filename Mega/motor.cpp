@@ -1,8 +1,8 @@
 #include "Motor.hpp"
 #include <Arduino.h>
 
-#define RESOLUTION_INDEX 11
-#define RESOLUTION 2048
+#define RESOLUTION_INDEX 8
+#define RESOLUTION 255
 
 Motor::Motor(int ia, int ib, int ha, int hb){
     ia_pin = ia;
@@ -12,17 +12,16 @@ Motor::Motor(int ia, int ib, int ha, int hb){
 
     control_mode = VELOCITY_CONTROL;
 
+    pulseCount = 0;
+
+    duty_cycle = 0;
+
     pinMode(ia_pin, OUTPUT);
     pinMode(ib_pin, OUTPUT);
 
     pinMode(ha_pin, INPUT);
     pinMode(hb_pin, INPUT);
-
-    analogWriteResolution(RESOLUTION_INDEX); //Gives 2^RESOLUTION_INDEX resolution (RESOLUTION)
 }
-
-
-
 
 float Motor::getVelocity(){
 
@@ -50,7 +49,9 @@ float Motor::getVelocity(){
     }
 }
 
-
+void Motor::logEncoderPulse(){
+  position_enc += 1;
+}
 
 float Motor::getPosition(){
     return position;
@@ -66,12 +67,8 @@ void Motor::setPID(int _kp, int _ki, int _kd){
     kd = _kd;
 }
 
-void Motor::configEncoder(int ppr, int HS_A){
-    encoder_ppr = ppr; // input pulses per rotation
-    encoderA_pin = HS_A; // input interrupt pin encoderA pin is connected to
-
-    pinMode(encoderA_pin, INPUT);
-    attachInterrupt(digitalPinToInterrupt(encoderA_pin), getVelocity, RISING);
+void Motor::setEncoderPPR(int ppr){
+  encoder_ppr = ppr;
 }
 
 void Motor::setControlMode(ControlMode mode){
@@ -82,21 +79,15 @@ void Motor::setControlMode(ControlMode mode){
 
 void Motor::setTargetVelocity(float vel){
     target_velocity = vel; //max 251rpm
-
-
-
-
-
 }
-
 
 
 void Motor::setTargetPosition(float pos){
     target_position = pos;
 }
 
-void Motor::setTargetDutyCycle(float duty_cycle){
-    target_duty_cycle = duty_cycle;
+void Motor::setTargetDutyCycle(float d_cycle){
+    target_duty_cycle = d_cycle;
 }
 
 void Motor::resetPosition(){
@@ -114,18 +105,22 @@ void Motor::runControlLoop(){
         break;
 
     case DUTY_CYCLE_CONTROL:
-        duty_cycle = target_duty_cycle
+        if(reverse){
+          duty_cycle = -target_duty_cycle;
+        }else{
+          duty_cycle = target_duty_cycle;
+        }
         setDutyCycle();
         break;
     }
-}
+   }
 
 void Motor::setDutyCycle(){
-    if(duty_cycle < 1){
-        analogueWrite(ia_pin, 0);
-        analogueWrite(ib_pin, duty_cycle * -1 * RESOLUTION);
+    if(duty_cycle > 0){
+        analogWrite(ia_pin, 0);
+        analogWrite(ib_pin, duty_cycle * RESOLUTION);
     } else {
-        analogueWrite(ia_pin, duty_cycle * RESOLUTION);
-        analogueWrite(ib_pin, 0);
+        analogWrite(ia_pin, duty_cycle * -1 *  RESOLUTION);
+        analogWrite(ib_pin, 0);
     }
 }

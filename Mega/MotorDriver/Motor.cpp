@@ -21,9 +21,36 @@ Motor::Motor(int ia, int ib, int ha, int hb){
     analogWriteResolution(RESOLUTION_INDEX); //Gives 2^RESOLUTION_INDEX resolution (RESOLUTION)
 }
 
+
+
+
 float Motor::getVelocity(){
-    return velocity;
+
+    if (pulseCount == 0 && !counting) {
+        startTime = millis(); // Start counting time at the first pulse
+        counting = true;
+    }
+
+    pulseCount++; // Increment pulse count
+
+    if (pulseCount >= desiredPulses) {
+        stopTime = millis();
+        unsigned long duration = stopTime - startTime; // Calculate duration
+
+        // Reset variables for the next measurement
+        pulseCount = 0;
+        counting = false;
+
+        velocity = 60000/duration; // resultant rpm
+
+        Serial.print("Velocity: ");
+        Serial.print(velocity);
+        Serial.println(" rpm");
+        return velocity;
+    }
 }
+
+
 
 float Motor::getPosition(){
     return position;
@@ -39,23 +66,36 @@ void Motor::setPID(int _kp, int _ki, int _kd){
     kd = _kd;
 }
 
-void Motor::setEncoderPPR(int ppr){
-    encoder_ppr = ppr;
+void Motor::configEncoder(int ppr, int HS_A){
+    encoder_ppr = ppr; // input pulses per rotation
+    encoderA_pin = HS_A; // input interrupt pin encoderA pin is connected to
+
+    pinMode(encoderA_pin, INPUT);
+    attachInterrupt(digitalPinToInterrupt(encoderA_pin), getVelocity, RISING);
 }
 
 void Motor::setControlMode(ControlMode mode){
     control_mode = mode;
 }
 
+
+
 void Motor::setTargetVelocity(float vel){
-    target_velocity = vel;
+    target_velocity = vel; //max 251rpm
+
+
+
+
+
 }
+
+
 
 void Motor::setTargetPosition(float pos){
     target_position = pos;
 }
 
-void setTargetDutyCycle(float duty_cycle){
+void Motor::setTargetDutyCycle(float duty_cycle){
     target_duty_cycle = duty_cycle;
 }
 

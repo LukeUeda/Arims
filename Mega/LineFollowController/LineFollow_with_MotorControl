@@ -1,0 +1,245 @@
+#include <QTRSensors.h>
+
+// This example is designed for use with eight RC QTR sensors. These
+// reflectance sensors should be connected to digital pins 3 to 10. The
+// sensors' emitter control pin (CTRL or LEDON) can optionally be connected to
+// digital pin 2, or you can leave it disconnected and remove the call to
+// setEmitterPin().
+//
+// The setup phase of this example calibrates the sensors for ten seconds and
+// turns on the Arduino's LED (usually on pin 13) while calibration is going
+// on. During this phase, you should expose each reflectance sensor to the
+// lightest and darkest readings they will encounter. For example, if you are
+// making a line follower, you should slide the sensors across the line during
+// the calibration phase so that each sensor can get a reading of how dark the
+// line is and how light the ground is.  Improper calibration will result in
+// poor readings.
+//
+// The main loop of the example reads the calibrated sensor values and uses
+// them to estimate the position of a line. You can test this by taping a piece
+// of 3/4" black electrical tape to a piece of white paper and sliding the
+// sensor across it. It prints the sensor values to the serial monitor as
+// numbers from 0 (maximum reflectance) to 1000 (minimum reflectance) followed
+// by the estimated location of the line as a number from 0 to 5000. 1000 means
+// the line is directly under sensor 1, 2000 means directly under sensor 2,
+// etc. 0 means the line is directly under sensor 0 or was last seen by sensor
+// 0 before being lost. 5000 means the line is directly under sensor 5 or was
+// last seen by sensor 5 before being lost.
+
+QTRSensors qtr;
+String serialCommand; // stores received string from raspberry pi over serial
+
+void navigateToCell(String cell);
+void forward();
+void reverse();
+void rotate_right();
+void rotate_left();
+void translate_right();
+void translate_left();
+void stop();
+
+void scissor_retract();
+void drive_velocity_percentage(int velocity_duty);
+void scissor_velocity_percentage(float scissor_velocity_duty);
+void conveyor_velocity_percentage(float conveyor_velocity_duty, int desired_conveyor);
+
+// initialise and define corresponding pwm pins for individual wheel speed control
+/*
+const int FR_pwm_forward = 2; // front right
+const int FL_pwm_forward = 3; // front left
+const int RR_pwm_forward = 4; // rear right
+const int RL_pwm_forward = 5; // rear left
+*/
+//Digital pins
+const int FR_forward = 4;
+const int FR_reverse = 8;
+
+const int FL_forward = 5;
+const int FL_reverse = 9;
+
+const int RR_forward = 2;
+const int RR_reverse = 6;
+
+const int RL_forward = 3;
+const int RL_reverse = 7;
+
+const uint8_t SensorCount = 8;
+uint16_t sensorValues[SensorCount];
+
+void forward(){
+analogWrite(FR_forward, HIGH);
+digitalWrite(FR_reverse, LOW);
+analogWrite(FL_forward, HIGH);
+digitalWrite(FL_reverse, LOW);
+analogWrite(RR_forward, HIGH);
+digitalWrite(RR_reverse, LOW);
+analogWrite(RL_forward, HIGH);
+digitalWrite(RL_reverse, LOW);
+}
+
+void reverse(){
+digitalWrite(FR_forward, LOW);
+digitalWrite(FR_reverse, HIGH);
+digitalWrite(FL_forward, LOW);
+digitalWrite(FL_reverse, HIGH);
+digitalWrite(RR_forward, LOW);
+digitalWrite(RR_reverse, HIGH);
+digitalWrite(RL_forward, LOW);
+digitalWrite(RL_reverse, HIGH);
+}
+
+void rotate_right(){
+digitalWrite(FR_forward, LOW);
+digitalWrite(FR_reverse, HIGH);
+digitalWrite(FL_forward, HIGH);
+digitalWrite(FL_reverse, LOW);
+digitalWrite(RR_forward, LOW);
+digitalWrite(RR_reverse, HIGH);
+digitalWrite(RL_forward, HIGH);
+digitalWrite(RL_reverse, LOW);
+}
+
+void rotate_left(){
+digitalWrite(FR_forward, HIGH);
+digitalWrite(FR_reverse, LOW);
+digitalWrite(FL_forward, LOW);
+digitalWrite(FL_reverse, HIGH);
+digitalWrite(RR_forward, HIGH);
+digitalWrite(RR_reverse, LOW);
+digitalWrite(RL_forward, LOW);
+digitalWrite(RL_reverse, HIGH);
+}
+
+void translate_right(){
+digitalWrite(FR_forward, LOW);
+digitalWrite(FR_reverse, HIGH);
+digitalWrite(FL_forward, HIGH);
+digitalWrite(FL_reverse, LOW);
+digitalWrite(RR_forward, HIGH);
+digitalWrite(RR_reverse, LOW);
+digitalWrite(RL_forward, LOW);
+digitalWrite(RL_reverse, HIGH);
+}
+
+void translate_left(){
+digitalWrite(FR_forward, HIGH);
+digitalWrite(FR_reverse, LOW);
+digitalWrite(FL_forward, LOW);
+digitalWrite(FL_reverse, HIGH);
+digitalWrite(RR_forward, LOW);
+digitalWrite(RR_reverse, HIGH);
+digitalWrite(RL_forward, HIGH);
+digitalWrite(RL_reverse, LOW);
+}
+
+void stop(){
+digitalWrite(FR_forward, LOW);
+digitalWrite(FR_reverse, LOW);
+digitalWrite(FL_forward, LOW);
+digitalWrite(FL_reverse, LOW);
+digitalWrite(RR_forward, LOW);
+digitalWrite(RR_reverse, LOW);
+digitalWrite(RL_forward, LOW);
+digitalWrite(RL_reverse, LOW);
+}
+
+void setup()
+{
+    Serial.begin(9600);  // Start serial communication at 9600 baud
+  // configure the sensors
+  qtr.setTypeRC();
+  qtr.setSensorPins((const uint8_t[]){38, 40, 42, 44, 46, 48, 50, 52}, SensorCount);
+  qtr.setEmitterPin(36);
+
+  delay(500);
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, HIGH); // turn on Arduino's LED to indicate we are in calibration mode
+
+  // 2.5 ms RC read timeout (default) * 10 reads per calibrate() call
+  // = ~25 ms per calibrate() call.
+  // Call calibrate() 400 times to make calibration take about 10 seconds.
+  for (uint16_t i = 0; i < 400; i++)
+  {
+    qtr.calibrate();
+  }
+  digitalWrite(LED_BUILTIN, LOW); // turn off Arduino's LED to indicate we are through with calibration
+
+  // print the calibration minimum values measured when emitters were on
+  Serial.begin(9600);
+  for (uint8_t i = 0; i < SensorCount; i++)
+  {
+    Serial.print(qtr.calibrationOn.minimum[i]);
+    Serial.print(' ');
+  }
+  Serial.println();
+
+  // print the calibration maximum values measured when emitters were on
+  for (uint8_t i = 0; i < SensorCount; i++)
+  {
+    Serial.print(qtr.calibrationOn.maximum[i]);
+    Serial.print(' ');
+  }
+  Serial.println();
+  Serial.println();
+  delay(1000);
+
+pinMode(FR_forward, OUTPUT);
+pinMode(FR_reverse, OUTPUT);
+pinMode(FL_forward, OUTPUT);
+pinMode(FL_reverse, OUTPUT);
+pinMode(RR_forward, OUTPUT);
+pinMode(RR_reverse, OUTPUT);
+pinMode(RL_forward, OUTPUT);
+pinMode(RL_reverse, OUTPUT);
+
+digitalWrite(FR_forward, LOW);
+digitalWrite(FR_reverse, LOW);
+digitalWrite(FL_forward, LOW);
+digitalWrite(FL_reverse, LOW);
+digitalWrite(RR_forward, LOW);
+digitalWrite(RR_reverse, LOW);
+digitalWrite(RL_forward, LOW);
+digitalWrite(RL_reverse, LOW);
+
+}
+
+void loop()
+{
+  // read calibrated sensor values and obtain a measure of the line position
+  // from 0 to 5000 (for a white line, use readLineWhite() instead)
+  uint16_t position = qtr.readLineBlack(sensorValues);
+
+  // print the sensor values as numbers from 0 to 1000, where 0 means maximum
+  // reflectance and 1000 means minimum reflectance, followed by the line
+  // position
+  for (uint8_t i = 0; i < SensorCount; i++)
+  {
+    Serial.print(sensorValues[i]);
+    Serial.print('\t');
+    
+  }
+  int16_t error = position - 2500;
+  Serial.println(error);
+
+// Initalise error which will range from -2500 to 2500 where 0 is the middle
+
+if(-750 >= error >= 750){
+  forward();
+}
+if (error < -750)
+  {
+    // the line is on the left
+    translate_left(); // turn left
+  }
+  if (error > 750)
+  {
+    // the line is on the right
+    translate_right(); // turn right
+  }
+
+  // set motor speeds using the two motor speed variables above
+
+  delay(250);
+}
+//----------------------------------------------------------------------------
+

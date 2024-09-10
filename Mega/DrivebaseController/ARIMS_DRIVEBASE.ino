@@ -35,7 +35,6 @@ int calibratePWM = 50;
 // rotation control 
 int rotate_speed = 35; // Speed of the rotation 
 int min_speed = 1; // Minimum speed of inside wheel that creates a rotation 
-int outside_speed = 50;
 
 void setup() {
   // put your setup code here, to run once:

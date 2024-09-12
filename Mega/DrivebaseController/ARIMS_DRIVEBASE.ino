@@ -137,6 +137,7 @@ void loop() {
       break;
       case(3):
       delay(3000);
+      intersecCount =  0;
       break;
     }
     

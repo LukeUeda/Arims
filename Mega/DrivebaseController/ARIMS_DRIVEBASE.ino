@@ -23,6 +23,7 @@ int BL_2 = 9;
 
 // Serical Coms
 char receivedChar;
+char incomingChar;
 
 //Inital Values
 const double KP = 0.06; //0.06  
@@ -68,13 +69,14 @@ void setup() {
 
   // print the calibration minimum values measured when emitters were on
   Serial.begin(9600);
+  Serial1.begin(9600);
 
 // Wait for the serial port to connect
   while (!Serial) {
     ;  // Wait for serial port to be ready
   }
 
-  Serial.println("Ready to receive commands!");
+  Serial1.println("Ready to receive commands!");
 
   for (uint8_t i = 0; i < SensorCount; i++)
   {
@@ -98,17 +100,20 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
 
- if (Serial.available() > 0) {
+ if (Serial1.available() > 0) {
     // Read the incoming byte
-    char incomingChar = Serial.read();
+    incomingChar = Serial1.read();
+    Serial.println(incomingChar);
 
     // Print the received character to the Serial Monitor
-    Serial.print("Received from raspberry pi: ");
-    Serial.println(incomingChar);
+    Serial1.print("Received from raspberry pi: ");
+    Serial1.println(incomingChar);
   }
 
   // Wait for input from raspberry Pi before starting
-  if(receivedChar == '1'){
+  if(incomingChar == '1'){
+
+    Serial.println("test");
 
   // Detect if robot is at an intersection
   for(int i = 0; i < SensorCount; i++){
@@ -154,7 +159,7 @@ void loop() {
 
   } // end of "if(receivedChar == '1') statement"
 
-  if(receivedChar == '2'){
+  if(incomingChar == '2'){
     stop();
   }
 

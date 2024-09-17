@@ -12,6 +12,7 @@ void stop();
 void calibrateIR();
 void line_follow();
 int intersection_nav(int intersecTarget);
+void shelf_location(char rowLocation);
 
 // Wheel initialisation (1 = forward Direction, 2 = reverse direction) 
 int FR_1 = 2; 
@@ -45,6 +46,10 @@ int intersecTarget;     // Intersection number to stop at
 
 // Shelf
 int moveTime = 2000;    // Time in ms to move from line to shelf
+int shelfStop = 5000;
+
+int row = 0;
+int col = 0;
 
 // rotation control 
 int rotate_speed = 35; // Speed of the rotation (35)
@@ -116,7 +121,7 @@ void loop() {
   // put your main code here, to run repeatedly:
 
   // ------------Manual Override (no Pi)-----------
-  incomingChar = '1';
+  incomingChar = '8';
 
  if (incomingChar == '5'){
   stop();
@@ -136,8 +141,8 @@ void loop() {
   update_battery_status();
 
   Serial1.println('G');
-
   line_follow();
+  shelf_location(incomingChar);
   intersection_nav(incomingChar);
   
 } // end of main loop
@@ -179,13 +184,8 @@ void intersection_nav(char inputChar) {
       isProcessing = true; // Set processing flag to true
 
       // Simplify repetitive logic using a loop
-      if (inputChar >= '1' && inputChar <= '4' && intersecCount == (inputChar - '0')) {
-        translate_left();
-        delay(moveTime); // Wait for the specified move time
-        stop();
-        delay(5000);
-        translate_right();
-        delay(moveTime);
+      if(intersecCount == row) {
+        shelf_movement_left();
         lastUpdateTime = currentTime; // Update the last intersection update time
         intersectionDetected = true; // Mark intersection as processed
       }
@@ -202,6 +202,40 @@ void intersection_nav(char inputChar) {
   isProcessing = false; // Reset processing flag after completing actions
 }
 
+// Move robot towards shelf located left of the line
+void shelf_movement_left(){
+  translate_left();
+        delay(moveTime); // Wait for the specified move time
+        stop();
+        delay(shelfStop);
+        translate_right();
+        delay(moveTime);
+}
+
+// Move robot towards shelf located right of the line 
+void shelf_movement_right(){
+  translate_right();
+        delay(moveTime); // Wait for the specified move time
+        stop();
+        delay(shelfStop);
+        translate_left();
+        delay(moveTime);
+}
+
+// Finds the row and collom of the shelf that needs to be located
+void shelf_location(char rowLocation){
+  switch(rowLocation){
+    case('1'): row = 1; col = 3; break;
+    case('2'): row = 2; col = 3; break;
+    case('3'): row = 3; col = 3; break;
+    case('4'): row = 1; col = 2; break;
+    case('5'): row = 2; col = 2; break;
+    case('6'): row = 3; col = 2; break;
+    case('7'): row = 1; col = 1; break;
+    case('8'): row = 2; col = 1; break;
+    case('9'): row = 3; col = 1; break;
+  }
+}
 
 void line_follow(){
 

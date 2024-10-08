@@ -20,7 +20,7 @@ int FR_2 = 3;
 int FL_1 = 4;
 int FL_2 = 5;
 int BR_1 = 6;
-int BR_2 = 7; 
+int BR_2 = 10; // BROKEN PIN!!!!!!!!!!
 int BL_1 = 8;
 int BL_2 = 9;
 

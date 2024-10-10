@@ -297,6 +297,8 @@ void shelf_movement_right(){
         delay(1000);
         translate_left();
         delay(moveTime);
+        stop();
+      stateNumber = 2;
 }
 
 // Finds the row and collom of the shelf that needs to be located

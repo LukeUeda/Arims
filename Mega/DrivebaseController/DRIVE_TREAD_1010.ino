@@ -50,7 +50,7 @@ int intersecCount = 0;  // Keep track of the number of intersections seen
 int intersecTarget;     // Intersection number to stop at
 
 // Shelf
-int moveTime = 2000;    // Time in ms to move from line to shelf
+int moveTime = 1500;    // Time in ms to move from line to shelf
 int shelfStop = 5000;
 
 int row = 0;
@@ -84,6 +84,8 @@ unsigned long time;
 bool TreadDirection;
 unsigned long start_time = 0;
 float speed = 150;
+
+bool ScissorDirection;
 
 void setup() {
   // put your setup code here, to run once:
@@ -125,10 +127,18 @@ void setup() {
   TreadDirection = HIGH; // High = retreive from shelf
   Serial.begin(115200);
   
-  pinMode(13, OUTPUT);  // Direction control PIN 13
-  pinMode(12, OUTPUT);  // PWM PIN 10
+  // Treadmill setup
+  pinMode(26, OUTPUT);  // Direction control PIN 26
+  pinMode(12, OUTPUT);  // PWM PIN 12
   analogWrite(12, 255); // Motor off (PWM is inverted)
-  digitalWrite(13, LOW);
+  digitalWrite(26, LOW);
+
+  // Scissor setup  
+  ScissorDirection = HIGH;
+  pinMode(30, OUTPUT);  // Direction control PIN 30
+  pinMode(11, OUTPUT);  // PWM PIN 11
+  analogWrite(11, 255); // Motor off (PWM is inverted)
+  digitalWrite(30, HIGH);
 
   // Wait for the serial port to connect
   while (!Serial) {
@@ -173,7 +183,7 @@ if(incomingChar == '10' || incomingChar == 0){
       
       // [3] Perform movement operations when desired intersection has been reached 
    while (stopFlag != 1 && stateNumber == 1){
-      shelf_movement_left();
+      shelf_movement_right();
     }
  }
 } // end of main loop
@@ -216,6 +226,30 @@ int intersection_nav(int intersecTarget){
   }
 }
 
+void Scissor_run() {
+  analogWrite(11, 0);
+  delay(1000);
+  analogWrite(11, 255);
+}
+
+void Scissor_Up() {
+  if (ScissorDirection == HIGH) { 
+    digitalWrite(30, LOW); // SCISSOR UP
+    Scissor_run();
+    ScissorDirection = LOW;
+    delay(1000);
+  } 
+}
+
+void Scissor_Down() {
+  if (ScissorDirection == LOW) { 
+    digitalWrite(30, HIGH); // SCISSOR UP
+    Scissor_run();
+    ScissorDirection = HIGH;
+    delay(1000);
+  } 
+}
+
 void Tread_run() {
   analogWrite(12, 0);
   delay(1500);
@@ -224,13 +258,13 @@ void Tread_run() {
 
 void Tread_Direction() {
   if (TreadDirection == HIGH) {
-    digitalWrite(13, LOW);
+    digitalWrite(26, LOW);
     Tread_run();
     TreadDirection = LOW;
     delay(1000);
   }
   if(TreadDirection == LOW){
-    digitalWrite(13, HIGH);
+    digitalWrite(26, HIGH);
     Tread_run();
     TreadDirection = HIGH;
     delay(1000);
@@ -242,8 +276,10 @@ void shelf_movement_left(){
   translate_left();
         delay(moveTime); // Wait for the specified move time
         stop();
+        Scissor_Up();
         Tread_Direction();
-        delay(shelfStop);
+        Scissor_Down();
+        delay(1000);
         translate_right();
         delay(moveTime);
         stop();
@@ -255,8 +291,10 @@ void shelf_movement_right(){
   translate_right();
         delay(moveTime); // Wait for the specified move time
         stop();
+        Scissor_Up();
         Tread_Direction();
-        delay(shelfStop);
+        Scissor_Down();
+        delay(1000);
         translate_left();
         delay(moveTime);
 }

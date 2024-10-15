@@ -95,8 +95,19 @@ int place_flag = 0;
 
 char incomingChar; // Start with 'C' or 'P' for operation simulation
 
+float scissor_angle;
+float lift_height;
+
+char previousChar = '0';
+
+
 void setup() {
   // put your setup code here, to run once:
+
+  // print the calibration minimum values measured when emitters were on
+  Serial.begin(9600);
+  Serial1.begin(9600);
+
   pinMode(FR_1,OUTPUT);
   pinMode(FR_2,OUTPUT);
 
@@ -132,10 +143,6 @@ void setup() {
 
   calibrateIR(); // calibrates ir sensor (place robot on centre of line and then power up)
 
-  // print the calibration minimum values measured when emitters were on
-  Serial.begin(9600);
-  Serial1.begin(9600);
-
   // Initialize timer and set initial state
   time = millis();
   TreadDirection = HIGH; // High = retreive from shelf
@@ -153,11 +160,11 @@ void setup() {
   analogWrite(11, 255); // Motor off (PWM is inverted)
   digitalWrite(30, HIGH);
 
+  
   // Wait for the serial port to connect
   while (!Serial) {
     ;  // Wait for serial port to be ready
   }
-
   delay(1000);
 
 }
@@ -168,67 +175,67 @@ void loop() {
     // Update the battery status
     update_battery_status();
 
-    Serial1.write('G');
-
     // Check if data is available on the serial port
-    if (Serial.available() > 0) {
+    if (Serial1.available() > 0) {
         // Read the incoming byte
-        incomingChar = Serial.read();
+        incomingChar = Serial1.read();
 
         // Print the received character to the Serial Monitor
         Serial.print("Received command: ");
         Serial.println(incomingChar);
         
-        // Check if the command is for operation ('C' for collect or 'P' for dispense)
-        if (incomingChar == 'C' || incomingChar == 'P') {
-            operation = incomingChar; // Set the operation
-            Serial.print("Operation set to: ");
-            Serial.println(operation == 'C' ? "Collect" : "Dispense");
+        if(incomingChar != previousChar){
+            previousChar = incomingChar;
+            if (incomingChar == 'C' || incomingChar == 'P') {
+                operation = incomingChar; // Set the operation
+                Serial.print("Operation set to: ");
+                Serial.println(operation == 'C' ? "Collect" : "Dispense");
 
-            // Wait for the next command to be a location ('1'-'9')
-            while (true) {
-                if (Serial.available() > 0) {
-                    incomingChar = Serial.read();
-                    if (incomingChar >= '1' && incomingChar <= '9') {
-                        break; // Exit the loop if a valid location is received
+                // Wait for the next command to be a location ('1'-'9')
+                while (true) {
+                    if (Serial1.available() > 0) {
+                        incomingChar = Serial1.read();
+                        if (incomingChar >= '1' && incomingChar <= '9') {
+                            break; // Exit the loop if a valid location is received
+                        }
                     }
                 }
             }
         }
+    }
 
-        // Use the shelf location function to set row and column
-        shelf_location(incomingChar);
-        Serial.print("Location set to row: ");
-        Serial.print(row);
-        Serial.print(", column: ");
-        Serial.println(col);
+    // Use the shelf location function to set row and column
+    shelf_location(incomingChar);
+    Serial.print("Location set to row: ");
+    Serial.print(row);
+    Serial.print(", column: ");
+    Serial.println(col);
 
-        // Proceed to move based on operation and location
-        // Reset stopFlag for the new operation
-        stopFlag = 0; 
+    // Proceed to move based on operation and location
+    stopFlag = 0; 
 
-        //[0] intro
-        if(incomingChar == 'Z'){
-          disco();
-          stop();
+    if (incomingChar == '0' || incomingChar == '10' || incomingChar == 0 || incomingChar == 'S') {
+        stop();
+        stopFlag = 1;
+    } else {
+        // Follow line until the desired intersection has been reached 
+        while (intersection_nav(row) == 0 && stopFlag != 1 && stateNumber == 0) {
+            line_follow();
         }
-        // [1] Detect if a valid shelf has been selected
-        else if (incomingChar == '0' || incomingChar == '10' || incomingChar == 0) {
-            stop();
-            stopFlag = 1;
-        } else {
-            // [2] Follow line until the desired intersection has been reached 
-            while (intersection_nav(row) == 0 && stopFlag != 1 && stateNumber == 0) {
-                line_follow();
-            }
-            
-            // [3] Perform movement operations when the desired intersection has been reached 
-            if (stopFlag != 1 && stateNumber == 1) {
-                shelf_movement_right(operation); // Execute operation-specific sequence
-            }
+        
+        // Perform movement operations when the desired intersection has been reached 
+        if (stopFlag != 1 && stateNumber == 1) {
+            shelf_movement(operation); // Execute operation-specific sequence
+            return; // Exit the loop once the shelf operation is done
         }
     }
-} // end if main loop
+
+    if(incomingChar == 'Z'){
+      disco();
+      stop();
+    }
+}
+ // end if main loop
 
 int intersection_nav(int intersecTarget){
 
@@ -282,7 +289,6 @@ void box_movement(char op, int row, int col) {
    // shelf_movement_right(op);
 }
 
-
 // Finds the row and collom of the shelf that needs to be located
 void shelf_location(char rowLocation){
   switch(rowLocation){
@@ -299,69 +305,8 @@ void shelf_location(char rowLocation){
   } 
 }
 
-void Scissor_run() {
-  analogWrite(11, 0);
-  delay(1200);
-  analogWrite(11, 255);
-}
-
-void Scissor_Up() {
-  if (ScissorDirection == HIGH) { 
-    digitalWrite(30, LOW); // SCISSOR UP
-    Scissor_run();
-    ScissorDirection = LOW;
-    delay(1000);
-  } 
-}
-
-void Scissor_Down() {
-  if (ScissorDirection == LOW) { 
-    digitalWrite(30, HIGH); // SCISSOR UP
-    Scissor_run();
-    ScissorDirection = HIGH;
-    delay(1000);
-  } 
-}
-
-void Tread_run() {
-  analogWrite(12, 0);
-  delay(1500);
-  analogWrite(12, 255);
-}
-
-void Tread_on(){
-  digitalWrite(26, HIGH);
-    Tread_run();
-    delay(1000);
-}
-
-void Tread_off() {
-  //if (TreadDirection == HIGH) {
-    digitalWrite(26, LOW);
-    Tread_run();
-    // TreadDirection = LOW;
-    delay(1500);
-  //}
-  
-}
-
-// Move robot towards shelf located left of the line
-void shelf_movement_left(){
-  translate_left();
-        delay(moveTime); // Wait for the specified move time
-        stop();
-        Scissor_Up();
-        Tread_Direction();
-        Scissor_Down();
-        delay(1000);
-        translate_right();
-        delay(moveTime);
-        stop();
-      stateNumber = 2;
-}
-
 // Function to handle shelf movements for both collect ('C') and dispense ('P')
-void shelf_movement_right(char op) {
+void shelf_movement(char op) {
       translate_right();
         delay(moveTime); // Wait for the specified move time
         stop();
@@ -383,16 +328,40 @@ void shelf_movement_right(char op) {
         delay(1000);     // Wait for any mechanical delays
     }
 
-    // Update the state number to indicate completion
-    stateNumber = 2;
-
     // Return to the original position
     translate_left();
     delay(moveTime);
+
     rotate_left();
-    delay(2000);
-    stop();
+    delay(4500);
+
+
+    // Resetting initial conditions
+    intersecCount = 0; // Reset intersection count
+    stateNumber = 0;   // Set state number back to initial
+    stopFlag = 0;      // Clear stop flag
+
+    // Reinitialize any other variables to their initial state
+    isProcessing = false;
+    intersectionDetected = false;
+
+    Serial.println("Resetting to initial conditions.");
 }
+
+/*
+void height(int column){
+  column = col;
+  scissor_angle = 120.0f - analogRead(A0)*89.5f/1023.0f;
+  lift_height = 300*sin(scissor_angle * 3.1415/360)+ 32.5;
+  //column 1 = 115
+  //column 2 = 191
+  //column 3 = 268
+
+  if(column == 1 && 115 <= lift_height <= 118){
+    
+  } 
+  
+} */
 
 void disco(){
   translate_left();
@@ -460,6 +429,52 @@ void drive_line(int left_speed,int right_speed, int error_control){
     rotate_right();  
   }
 
+}
+
+void Scissor_run() {
+  analogWrite(11, 0);
+  delay(1200);
+  analogWrite(11, 255);
+}
+
+void Scissor_Up() {
+  if (ScissorDirection == HIGH) { 
+    digitalWrite(30, LOW); // SCISSOR UP
+    Scissor_run();
+    ScissorDirection = LOW;
+    delay(1000);
+  } 
+}
+
+void Scissor_Down() {
+  if (ScissorDirection == LOW) { 
+    digitalWrite(30, HIGH); // SCISSOR UP
+    Scissor_run();
+    ScissorDirection = HIGH;
+    delay(1000);
+  } 
+}
+
+void Tread_run() {
+  analogWrite(12, 0);
+  delay(1500);
+  analogWrite(12, 255);
+}
+
+void Tread_on(){
+  digitalWrite(26, HIGH);
+    Tread_run();
+    delay(1000);
+}
+
+void Tread_off() {
+  //if (TreadDirection == HIGH) {
+    digitalWrite(26, LOW);
+    Tread_run();
+    // TreadDirection = LOW;
+    delay(1500);
+  //}
+  
 }
 
 void rotate_right(){
@@ -565,7 +580,7 @@ void calibrateIR(){
   int direction = 3;
 
   translate_right();
-  for (uint16_t i = 0; i < 200; i++) {
+  for (uint16_t i = 0; i < 200; i++) { // 200
     count = count + 1;
 
     qtr.calibrate();  // Perform sensor calibration

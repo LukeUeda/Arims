@@ -56,7 +56,7 @@ int last_error1 = 0;
 int liftRaiseTime = 6000;
 int liftLowerTime = 6000;
 
-//Shelf Hight Values
+//Shelf Height Values
 int T_Low = 895;
 int T_High = 930;
 int M_Low = 290;
